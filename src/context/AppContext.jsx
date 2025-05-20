@@ -1,12 +1,5 @@
-import { createContext, useContext, useState } from "react";
-
-// Creating the context
-const AppContext = createContext();
-
-// Custom hook for using context
-export function useAppContext() {
-  return useContext(AppContext);
-}
+import { useState } from "react";
+import { AppContext } from "./context";
 
 // Helper to load promise info from localStorage
 const loadPromiseInfoFromStorage = () => {
@@ -39,7 +32,9 @@ export function AppContextProvider({ children }) {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [showLinkScreen, setShowLinkScreen] = useState(false);
   const [generatedLink, setGeneratedLink] = useState("");
-  const [promiseIdMap, setPromiseIdMap] = useState({}); // Function to update promise info and save to localStorage
+  const [promiseIdMap, setPromiseIdMap] = useState({});
+
+  // Function to update promise info and save to localStorage
   const updatePromiseInfo = (field, value) => {
     setPromiseInfo((prev) => {
       const updated = {
@@ -66,50 +61,79 @@ export function AppContextProvider({ children }) {
   };
 
   // Function to generate promise link
-  const generateLink = () => {
-    // This would connect to backend in production
-    console.log("Generating link for:", promiseInfo);
-
-    // Generate a unique ID using timestamp and a random number
-    const promiseId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-    // Save this promise info with the generated ID
-    const promiseData = {
-      ...promiseInfo,
-      id: promiseId,
-      createdAt: new Date().toISOString(),
-    };
-
+  const generateLink = async () => {
     try {
-      // Save this specific promise data with its ID
-      localStorage.setItem(
-        `promise_${promiseId}`,
-        JSON.stringify({
-          ...promiseData,
-          promiseDate: promiseData.promiseDate
-            ? promiseData.promiseDate.toISOString()
-            : null,
-        })
+      console.log("Generating link for:", promiseInfo);
+
+      // Create a UUID for the promiseId (You could also let the backend generate this)
+      const promiseId = crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      // Prepare data for API
+      const promiseData = {
+        promiseId: promiseId,
+        promiseName: promiseInfo.promiseName,
+        numberOfPeople: parseInt(promiseInfo.numberOfPeople),
+        promiseDate: promiseInfo.promiseDate.toISOString(),
+      };
+
+      // Call the API to create a promise
+      const response = await fetch(
+        "http://localhost:8000/api/promises/create",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(promiseData),
+        }
       );
 
-      // Update the mapping
-      const updatedMap = { ...promiseIdMap, [promiseId]: promiseData };
-      setPromiseIdMap(updatedMap);
-      localStorage.setItem("promiseIdMap", JSON.stringify(updatedMap));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "약속 생성에 실패했습니다.");
+      }
+
+      const responseData = await response.json();
+      console.log("Promise created:", responseData);
+
+      // For backwards compatibility, also save to localStorage
+      try {
+        // Save this specific promise data with its ID
+        localStorage.setItem(
+          `promise_${promiseId}`,
+          JSON.stringify({
+            ...promiseData,
+            id: promiseId,
+            createdAt: new Date().toISOString(),
+          })
+        );
+
+        // Update the mapping
+        const updatedMap = { ...promiseIdMap, [promiseId]: promiseData };
+        setPromiseIdMap(updatedMap);
+        localStorage.setItem("promiseIdMap", JSON.stringify(updatedMap));
+      } catch (error) {
+        console.error("Error saving promise data locally:", error);
+      }
+
+      // For development, we'll use the current URL as base
+      // In production, this would be the actual domain
+      const baseUrl = window.location.origin;
+      const link = `${baseUrl}/promise/${promiseId}`;
+
+      setGeneratedLink(link);
+      setShowLinkScreen(true);
+
+      return link;
     } catch (error) {
-      console.error("Error saving promise data:", error);
+      console.error("Error generating link:", error);
+      alert(`약속 생성에 실패했습니다: ${error.message}`);
     }
+  };
 
-    // For development, we'll use the current URL as base
-    // In production, this would be the actual domain
-    const baseUrl = window.location.origin;
-    const link = `${baseUrl}/promise/${promiseId}`;
-
-    setGeneratedLink(link);
-    setShowLinkScreen(true);
-
-    return link;
-  }; // Function to get promise data by ID
+  // Function to get promise data by ID
   const getPromiseById = (promiseId) => {
     try {
       // First try to get directly from localStorage

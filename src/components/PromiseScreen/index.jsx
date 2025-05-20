@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import styled from "styled-components";
-import { useAppContext } from "../../context/AppContext";
+import { useAppContext } from "../../hooks/useAppContext";
 
 // Styled components for the promise screen
 const PromiseContainer = styled.div`
@@ -203,31 +203,64 @@ const PromiseScreen = () => {
       ...prev,
       [field]: value,
     }));
-  };
-  // Handle form submission
-  const handleSubmit = (e) => {
+  }; // Handle form submission
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Combine promise info with form data
-    const completeData = {
-      ...formData,
-      promiseInfo: currentPromise,
+    if (
+      !formData.foodPreference ||
+      !formData.activityPreference ||
+      !formData.dressCodeLevel
+    ) {
+      alert("모든 필드를 입력해주세요!");
+      return;
+    }
+
+    // Prepare data in the format expected by the API
+    const submissionData = {
       promiseId: id,
+      promiseInfo: currentPromise,
+      promiseContent: {
+        food: formData.foodPreference,
+        activity: formData.activityPreference,
+        dressCode: formData.dressCodeLevel,
+      },
     };
 
-    alert("약속서가 성공적으로 제출되었습니다!");
-    console.log("Submitted complete data:", completeData);
-
-    // Here you would typically send this data to your backend
-
-    // Save to localStorage for demo purposes
     try {
-      localStorage.setItem(
-        `promise_submission_${id}`,
-        JSON.stringify(completeData)
+      const response = await fetch(
+        "http://localhost:8000/api/promises/submit",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(submissionData),
+        }
       );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "약속서 제출에 실패했습니다.");
+      }
+
+      const result = await response.json();
+
+      alert("약속서가 성공적으로 제출되었습니다!");
+      console.log("Submission result:", result);
+
+      // Save to localStorage for demo purposes
+      try {
+        localStorage.setItem(
+          `promise_submission_${id}`,
+          JSON.stringify(submissionData)
+        );
+      } catch (error) {
+        console.error("Error saving submission:", error);
+      }
     } catch (error) {
-      console.error("Error saving submission:", error);
+      console.error("Error submitting promise:", error);
+      alert(`제출 실패: ${error.message}`);
     }
   };
   return (

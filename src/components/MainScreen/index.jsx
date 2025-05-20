@@ -4,7 +4,7 @@ import FormFields from "./FormFields";
 import GenerateButton from "./GenerateButton";
 import DatePickerModal from "./DatePickerModal";
 import LinkShareScreen from "../LinkShareScreen";
-import { useAppContext } from "../../context/AppContext";
+import { useAppContext } from "../../hooks/useAppContext";
 
 const MainContainer = styled.div`
   display: flex;

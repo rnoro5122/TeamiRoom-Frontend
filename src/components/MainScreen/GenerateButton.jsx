@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { useAppContext } from "../../context/AppContext";
+import { useAppContext } from "../../hooks/useAppContext";
 
 const ButtonContainer = styled.div`
   margin-top: 40px;
