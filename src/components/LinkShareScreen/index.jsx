@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../../hooks/useAppContext";
+import { useState, useEffect } from "react";
 
 const ModalContainer = styled.div`
   position: fixed;
@@ -78,6 +79,35 @@ const LinkText = styled.p`
   text-overflow: ellipsis;
   white-space: nowrap;
   padding-right: 30px;
+  transition: color 0.3s ease;
+  ${(props) => props.copied && "color: #4CAF50;"}
+`;
+
+const CopyTooltip = styled.div`
+  position: absolute;
+  top: -30px;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  opacity: ${(props) => (props.show ? 1 : 0)};
+  transform: translateY(${(props) => (props.show ? 0 : "5px")});
+  transition: all 0.3s ease;
+  pointer-events: none;
+
+  &:after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    right: 10px;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid rgba(0, 0, 0, 0.7);
+  }
 `;
 
 const CopyIcon = styled.div`
@@ -86,28 +116,47 @@ const CopyIcon = styled.div`
   position: absolute;
   right: 15px;
   cursor: pointer;
+  transition: all 0.3s ease;
 
-  &::before,
-  &::after {
-    content: "";
-    position: absolute;
-    border: 1px solid #000;
-    width: 14px;
-    height: 18px;
-  }
+  ${(props) =>
+    props.copied
+      ? `
+    &::before {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 5px;
+      width: 6px;
+      height: 12px;
+      border-bottom: 2px solid #4CAF50;
+      border-right: 2px solid #4CAF50;
+      transform: rotate(45deg);
+    }
+  `
+      : `
+    &::before,
+    &::after {
+      content: "";
+      position: absolute;
+      border: 1px solid #000;
+      width: 14px;
+      height: 18px;
+      transition: all 0.3s ease;
+    }
 
-  &::before {
-    top: 0;
-    left: 0;
-    background-color: white;
-  }
+    &::before {
+      top: 0;
+      left: 0;
+      background-color: white;
+    }
 
-  &::after {
-    top: 4px;
-    left: 4px;
-    background-color: white;
-    z-index: -1;
-  }
+    &::after {
+      top: 4px;
+      left: 4px;
+      background-color: white;
+      z-index: -1;
+    }
+  `}
 `;
 
 const CreateButton = styled.button`
@@ -138,6 +187,8 @@ const CreateButton = styled.button`
 function LinkShareScreen() {
   const { generatedLink, setShowLinkScreen } = useAppContext();
   const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // Extract the promise ID from the generated link
   const getPromiseId = () => {
@@ -145,9 +196,34 @@ function LinkShareScreen() {
     return urlParts[urlParts.length - 1];
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(generatedLink);
-    alert("링크가 복사되었습니다!");
+  // Reset copied state after 2 seconds
+  useEffect(() => {
+    if (copied) {
+      const timer = setTimeout(() => {
+        setCopied(false);
+        setShowTooltip(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [copied]);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedLink);
+      setCopied(true);
+      setShowTooltip(true);
+    } catch (err) {
+      console.error("Failed to copy link: ", err);
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement("textarea");
+      textArea.value = generatedLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setShowTooltip(true);
+    }
   };
 
   const handleCreate = () => {
@@ -164,10 +240,11 @@ function LinkShareScreen() {
           약속서 링크생성이 <br />
           완료되었습니다!
         </Title>
-        <SubTitle>링크 공유하기</SubTitle>
+        <SubTitle>링크 공유하기</SubTitle>{" "}
         <LinkContainer>
-          <LinkText>{generatedLink}</LinkText>
-          <CopyIcon onClick={copyLink} />
+          <LinkText copied={copied}>{generatedLink}</LinkText>
+          <CopyTooltip show={showTooltip}>복사됨</CopyTooltip>
+          <CopyIcon copied={copied} onClick={copyLink} />
         </LinkContainer>
         <CreateButton onClick={handleCreate}>약속서 바로 작성하기</CreateButton>
       </ModalContent>

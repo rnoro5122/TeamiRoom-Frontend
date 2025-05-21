@@ -84,3 +84,38 @@ export const getPromiseById = async (promiseId) => {
     throw error;
   }
 };
+
+/**
+ * Get promise results by ID
+ * @param {string} promiseId - The promise ID
+ * @returns {Promise} - Response from the API with the final coordination document if available
+ */
+export const getPromiseResults = async (promiseId) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/promises/${promiseId}/results`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      // If the response status is 404, it means the results are not available yet
+      if (response.status === 404) {
+        return null;
+      }
+      const errorData = await response.json();
+      throw new Error(
+        errorData.detail || "약속 결과를 불러오는데 실패했습니다."
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error getting promise results:", error);
+    throw error;
+  }
+};
