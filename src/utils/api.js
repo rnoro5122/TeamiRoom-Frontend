@@ -1,7 +1,7 @@
 // API utility functions for TeamiRoom
 
 // Base URL for API calls
-const API_BASE_URL = "http://localhost:8000/api"; // Adjust this to match your backend server
+const API_BASE_URL = "http://58.120.14.135:8000/api"; // Adjust this to match your backend server
 
 /**
  * Create a new promise

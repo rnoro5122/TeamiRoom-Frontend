@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import styled from "styled-components";
 import { useAppContext } from "../../hooks/useAppContext";
+import { getPromiseById, submitPromise } from "../../utils/api";
 
 // Styled components for the promise screen
 const PromiseContainer = styled.div`
@@ -172,30 +173,68 @@ const PromiseScreen = () => {
   const { id } = useParams();
 
   // Get promise info and functions from context
-  const { promiseInfo: globalPromiseInfo, getPromiseById } = useAppContext();
+  const { promiseInfo: globalPromiseInfo } = useAppContext();
 
   // State for the promise info specific to this ID
   const [currentPromise, setCurrentPromise] = useState(null);
-
-  // Load promise info when component mounts or ID changes
-  useEffect(() => {
-    // First try to get specific promise data by ID
-    const savedPromise = getPromiseById(id);
-
-    if (savedPromise) {
-      setCurrentPromise(savedPromise);
-    } else {
-      // Fallback to global promise info if no specific data found
-      setCurrentPromise(globalPromiseInfo);
-    }
-  }, [id, getPromiseById, globalPromiseInfo]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // State for form data
   const [formData, setFormData] = useState({
-    foodPreference: "",
-    activityPreference: "",
-    dressCodeLevel: "",
+    food: "",
+    activity: "",
+    dressCode: "",
   });
+
+  // Load promise info when component mounts or ID changes
+  useEffect(() => {
+    const fetchPromiseData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch promise data from API
+        const promiseData = await getPromiseById(id);
+        console.log("Fetched promise data:", promiseData);
+
+        // Format the date
+        if (promiseData.promiseDate) {
+          promiseData.promiseDate = new Date(promiseData.promiseDate);
+        }
+
+        setCurrentPromise(promiseData);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching promise data:", err);
+        setError(`약속 정보를 불러오는데 실패했습니다: ${err.message}`);
+
+        // Fallback to context data if API fails
+        const savedPromise = localStorage.getItem(`promise_${id}`);
+        if (savedPromise) {
+          try {
+            const parsedPromise = JSON.parse(savedPromise);
+            if (parsedPromise.promiseDate) {
+              parsedPromise.promiseDate = new Date(parsedPromise.promiseDate);
+            }
+            setCurrentPromise(parsedPromise);
+          } catch (parseErr) {
+            console.error("Error parsing saved promise:", parseErr);
+            setCurrentPromise(globalPromiseInfo);
+          }
+        } else {
+          setCurrentPromise(globalPromiseInfo);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchPromiseData();
+    } else {
+      setCurrentPromise(globalPromiseInfo);
+      setIsLoading(false);
+    }
+  }, [id, globalPromiseInfo]);
 
   // Handle form input changes
   const handleChange = (field, value) => {
@@ -207,44 +246,23 @@ const PromiseScreen = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (
-      !formData.foodPreference ||
-      !formData.activityPreference ||
-      !formData.dressCodeLevel
-    ) {
+    if (!formData.food || !formData.activity || !formData.dressCode) {
       alert("모든 필드를 입력해주세요!");
       return;
-    }
-
-    // Prepare data in the format expected by the API
+    } // Prepare data in the format expected by the API
     const submissionData = {
       promiseId: id,
-      promiseInfo: currentPromise,
+      promiseInfo: null, // We don't need to send this anymore since the server has it
       promiseContent: {
-        food: formData.foodPreference,
-        activity: formData.activityPreference,
-        dressCode: formData.dressCodeLevel,
+        food: formData.food,
+        activity: formData.activity,
+        dressCode: formData.dressCode,
       },
     };
 
     try {
-      const response = await fetch(
-        "http://localhost:8000/api/promises/submit",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(submissionData),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "약속서 제출에 실패했습니다.");
-      }
-
-      const result = await response.json();
+      // Use the API utility function instead of hardcoding the URL
+      const result = await submitPromise(submissionData);
 
       alert("약속서가 성공적으로 제출되었습니다!");
       console.log("Submission result:", result);
@@ -263,10 +281,30 @@ const PromiseScreen = () => {
       alert(`제출 실패: ${error.message}`);
     }
   };
+
   return (
     <PromiseContainer>
       <ContentWrapper>
         <Title>약속서 작성</Title>
+
+        {/* Loading state */}
+        {isLoading && (
+          <div style={{ textAlign: "center", padding: "20px" }}>
+            <p style={{ fontSize: "16px", fontFamily: "Inter, sans-serif" }}>
+              약속 정보를 불러오는 중...
+            </p>
+          </div>
+        )}
+
+        {/* Error state */}
+        {error && !isLoading && (
+          <div style={{ textAlign: "center", padding: "20px", color: "red" }}>
+            <p style={{ fontSize: "16px", fontFamily: "Inter, sans-serif" }}>
+              {error}
+            </p>
+          </div>
+        )}
+
         {/* 약속 정보 카드 */}
         <PromiseInfoCard>
           <PromiseInfoTitle>약속 정보</PromiseInfoTitle>
@@ -315,6 +353,22 @@ const PromiseScreen = () => {
                 <InfoLabel>약속 ID</InfoLabel>
                 <InfoValue isEmpty={!id}>{id || "정보 없음"}</InfoValue>
               </InfoRow>
+              {currentPromise?.createdAt && (
+                <InfoRow>
+                  <InfoLabel>생성 일시</InfoLabel>
+                  <InfoValue isEmpty={!currentPromise?.createdAt}>
+                    {formatDate(currentPromise?.createdAt)}
+                  </InfoValue>
+                </InfoRow>
+              )}
+              {currentPromise?.submissions && (
+                <InfoRow>
+                  <InfoLabel>제출 현황</InfoLabel>
+                  <InfoValue isEmpty={!currentPromise?.submissions}>
+                    {currentPromise?.submissions?.length || 0}명 제출 완료
+                  </InfoValue>
+                </InfoRow>
+              )}
             </PromiseInfoContent>
           )}
         </PromiseInfoCard>
@@ -347,8 +401,8 @@ const PromiseScreen = () => {
           <Question>오늘은 어떤 메뉴가 마음에 끌리시나요?</Question>
           <AnswerBox>
             <TextArea
-              value={formData.foodPreference}
-              onChange={(e) => handleChange("foodPreference", e.target.value)}
+              value={formData.food}
+              onChange={(e) => handleChange("food", e.target.value)}
               placeholder="음식 취향이나 먹고 싶은 메뉴를 적어주세요."
             />
           </AnswerBox>
@@ -358,10 +412,8 @@ const PromiseScreen = () => {
           <Question>오늘은 어떤 걸 하면서 즐기고 싶으세요?</Question>
           <AnswerBox>
             <TextArea
-              value={formData.activityPreference}
-              onChange={(e) =>
-                handleChange("activityPreference", e.target.value)
-              }
+              value={formData.activity}
+              onChange={(e) => handleChange("activity", e.target.value)}
               placeholder="하고 싶은 활동이나 원하는 분위기를 적어주세요."
             />
           </AnswerBox>
@@ -371,8 +423,8 @@ const PromiseScreen = () => {
           <Question>오늘의 꾸밈 정도는?</Question>
           <AnswerBox>
             <TextArea
-              value={formData.dressCodeLevel}
-              onChange={(e) => handleChange("dressCodeLevel", e.target.value)}
+              value={formData.dressCode}
+              onChange={(e) => handleChange("dressCode", e.target.value)}
               placeholder="원하는 드레스 코드나 꾸밈 정도를 적어주세요."
             />
           </AnswerBox>

@@ -36,7 +36,7 @@ function DateDisplay() {
         <br />
         5월
       </DateText>
-      <DateNumber>20</DateNumber>
+      <DateNumber>21</DateNumber>
     </DateContainer>
   );
 }

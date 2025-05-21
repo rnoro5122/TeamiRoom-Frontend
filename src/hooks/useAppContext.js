@@ -1,6 +1,5 @@
-// filepath: c:\Users\Home\Documents\GitHub\teamiroom-frontend\src\hooks\useAppContext.js
 import { useContext } from "react";
-import { AppContext } from "../context/AppContext";
+import { AppContext } from "../context/context";
 
 // Custom hook for using context
 export function useAppContext() {

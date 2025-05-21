@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AppContext } from "./context";
+import { createPromise } from "../utils/api";
 
 // Helper to load promise info from localStorage
 const loadPromiseInfoFromStorage = () => {
@@ -76,26 +77,8 @@ export function AppContextProvider({ children }) {
         promiseName: promiseInfo.promiseName,
         numberOfPeople: parseInt(promiseInfo.numberOfPeople),
         promiseDate: promiseInfo.promiseDate.toISOString(),
-      };
-
-      // Call the API to create a promise
-      const response = await fetch(
-        "http://localhost:8000/api/promises/create",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(promiseData),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "약속 생성에 실패했습니다.");
-      }
-
-      const responseData = await response.json();
+      }; // Call the API to create a promise using the API utility function
+      const responseData = await createPromise(promiseData);
       console.log("Promise created:", responseData);
 
       // For backwards compatibility, also save to localStorage
