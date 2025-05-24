@@ -421,6 +421,8 @@ const PromiseScreen = () => {
   const [formData, setFormData] = useState({
     food: "",
     activity: "",
+    preferredAtmosphere: "", // New field
+    budget: "", // New field
     dressCodeLevel: "5", // Default to middle of the slider (1-10)
   }); // Load promise info and check for results when component mounts or ID changes
   useEffect(() => {
@@ -535,7 +537,7 @@ const PromiseScreen = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.food || !formData.activity) {
+    if (!formData.food || !formData.activity || !formData.preferredAtmosphere || !formData.budget) {
       alert("모든 필드를 입력해주세요!");
       return;
     }
@@ -559,6 +561,8 @@ const PromiseScreen = () => {
       promiseContent: {
         food: formData.food,
         activity: formData.activity,
+        preferredAtmosphere: formData.preferredAtmosphere, // New field
+        budget: formData.budget, // New field
         dressCodeLevel: parseInt(formData.dressCodeLevel, 10), // Send integer value as required by backend
       },
     };
@@ -768,6 +772,26 @@ const PromiseScreen = () => {
                   value={formData.activity}
                   onChange={(e) => handleChange("activity", e.target.value)}
                   placeholder="하고 싶은 활동이나 원하는 분위기를 적어주세요."
+                />
+              </AnswerBox>
+            </QuestionSection>
+            <QuestionSection>
+              <Question>선호하는 장소 분위기는 어떤가요?</Question>
+              <AnswerBox>
+                <TextArea
+                  value={formData.preferredAtmosphere}
+                  onChange={(e) => handleChange("preferredAtmosphere", e.target.value)}
+                  placeholder="예: 조용한, 활기찬, 로맨틱한, 캐주얼한 등"
+                />
+              </AnswerBox>
+            </QuestionSection>
+            <QuestionSection>
+              <Question>예상 P(인당) 소비 금액은 얼마인가요?</Question>
+              <AnswerBox>
+                <TextArea
+                  value={formData.budget}
+                  onChange={(e) => handleChange("budget", e.target.value)}
+                  placeholder="예: 3만원 이하, 5만원 ~ 7만원 등"
                 />
               </AnswerBox>
             </QuestionSection>{" "}
